@@ -1,44 +1,50 @@
-FROM ubuntu:16.04
+#
+# Docker Bionic image to build Yocto 3.0
+#
+FROM ubuntu:18.04
 
-ENV DEBIAN_FRONTENV noninteractive
+# Keep the dependency list as short as reasonable
+RUN apt-get update && \
+    apt-get install -y bc bison bsdmainutils build-essential curl locales \
+        flex g++-multilib gcc-multilib git gnupg gperf lib32ncurses5-dev \
+        lib32z1-dev libncurses5-dev git-lfs \
+        libsdl1.2-dev libxml2-utils lzop \
+        openjdk-8-jdk lzop wget git-core unzip \
+        genisoimage sudo socat xterm gawk cpio texinfo \
+        gettext vim diffstat chrpath \
+        python-mako libusb-1.0-0-dev exuberant-ctags \
+        pngcrush schedtool xsltproc zip zlib1g-dev libswitch-perl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN apt-get update && apt-get -y upgrade
+ADD https://commondatastorage.googleapis.com/git-repo-downloads/repo /usr/local/bin/
+RUN chmod 755 /usr/local/bin/*
 
-# Required Packages for the Host Development System
-# http://www.yoctoproject.org/docs/latest/mega-manual/mega-manual.html#required-packages-for-the-host-development-system
-RUN apt-get install -y gawk wget git-core diffstat unzip texinfo gcc-multilib g++-multilib \
-     build-essential chrpath socat cpio python python3 python3-pip python3-pexpect \
-     apt-utils tmux xz-utils debianutils iputils-ping libncurses5-dev
+# ===== create user/setup environment =====
+# Replace 1000 with your user/group id
+RUN export uid=1000 gid=1000 user=ub && \
+    mkdir -p /home/${user} && \
+    echo "${user}:x:${uid}:${gid}:${user},,,:/home/${user}:/bin/bash" >> /etc/passwd && \
+    echo "${user}:x:${uid}:" >> /etc/group && \
+    echo "${user} ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/${user} && \
+    chmod 0440 /etc/sudoers.d/${user} && \
+    chown ${uid}:${gid} -R /home/${user}
 
-# Additional host packages required by poky/scripts/wic
-RUN apt-get install -y curl dosfstools mtools parted syslinux tree zip
+# The persistent data will be in these two directories, everything else is
+# considered to be ephemeral
+#VOLUME ["/tmp/ccache", "/aosp"]
 
-# Add "repo" tool (used by many Yocto-based projects)
-RUN curl http://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo
-RUN chmod a+x /usr/local/bin/repo
+# Improve rebuild performance by enabling compiler cache
+ENV USE_CCACHE 1
+ENV CCACHE_DIR /home/ub/.ccache
 
-# Create user "jenkins"
-RUN id jenkins 2>/dev/null || useradd --uid 1000 --create-home jenkins
+# some QT-Apps/Gazebo do not show controls without this
+ENV QT_X11_NO_MITSHM 1
 
-# Create a non-root user that will perform the actual build
-RUN id build 2>/dev/null || useradd --uid 30000 --create-home build
-RUN apt-get install -y sudo
-RUN echo "build ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers
-
-# Fix error "Please use a locale setting which supports utf-8."
-# See https://wiki.yoctoproject.org/wiki/TipsAndTricks/ResolvingLocaleIssues
-RUN apt-get install -y locales
-RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
-        echo 'LANG="en_US.UTF-8"'>/etc/default/locale && \
-        dpkg-reconfigure --frontend=noninteractive locales && \
-        update-locale LANG=en_US.UTF-8
-
-ENV LC_ALL en_US.UTF-8
+# Set the locale
+RUN locale-gen en_US.UTF-8
 ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US.UTF-8
-
-USER build
-WORKDIR /home/build
-CMD "/bin/bash"
-
-# EOF
+ 
+ENV HOME /home/ub
+ENV USER ub
+USER ub
+#WORKDIR /home/ub
