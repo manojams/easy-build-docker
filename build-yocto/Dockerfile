@@ -16,6 +16,11 @@ RUN apt-get update && \
         pngcrush schedtool xsltproc zip zlib1g-dev libswitch-perl && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+RUN apt-get update && \
+    apt-get install -y  libssl-dev libc6-armel-cross libc6-dev-armel-cross \
+                binutils-arm-linux-gnueabi libncurses5-dev build-essential \
+                gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf 
+
 ADD https://commondatastorage.googleapis.com/git-repo-downloads/repo /usr/local/bin/
 RUN chmod 755 /usr/local/bin/*
 
