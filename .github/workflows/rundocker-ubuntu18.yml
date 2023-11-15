@@ -3,7 +3,7 @@ name: run and Publish Docker
 on:
   push:
     paths:
-      - 'build-yocto/Dockerfile'
+      - 'build-yocto/Dockerfile-*'
     branches:
       - main
 
